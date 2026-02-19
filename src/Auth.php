@@ -16,6 +16,20 @@ final class Auth
         return isset($_SESSION['is_admin']) && (bool) $_SESSION['is_admin'];
     }
 
+    public static function moderatorRights(): array
+    {
+        return $_SESSION['moderator_rights'] ?? [];
+    }
+
+    public static function hasRight(string $right): bool
+    {
+        if (self::isAdmin()) {
+            return true;
+        }
+
+        return in_array($right, self::moderatorRights(), true);
+    }
+
     public static function requireUser(): void
     {
         if (!self::userId()) {
@@ -29,6 +43,14 @@ final class Auth
         if (!self::isAdmin()) {
             header('Location: /login.php');
             exit;
+        }
+    }
+
+    public static function requireRight(string $right): void
+    {
+        if (!self::hasRight($right)) {
+            http_response_code(403);
+            exit('Forbidden');
         }
     }
 }

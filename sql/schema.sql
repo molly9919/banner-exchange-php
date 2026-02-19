@@ -20,6 +20,16 @@ CREATE TABLE `{prefix}users` (
   `created_at` DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE `{prefix}moderators` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL UNIQUE,
+  `rights_json` JSON NOT NULL,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  FOREIGN KEY (`user_id`) REFERENCES `{prefix}users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE `{prefix}categories` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `size_key` VARCHAR(20) NOT NULL,
@@ -65,6 +75,7 @@ CREATE TABLE `{prefix}impressions` (
   `created_at` DATETIME NOT NULL,
   INDEX (`banner_id`),
   INDEX (`viewer_user_id`),
+  INDEX (`created_at`),
   FOREIGN KEY (`banner_id`) REFERENCES `{prefix}banners`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -76,6 +87,7 @@ CREATE TABLE `{prefix}clicks` (
   `created_at` DATETIME NOT NULL,
   INDEX (`banner_id`),
   INDEX (`event_token`),
+  INDEX (`created_at`),
   FOREIGN KEY (`banner_id`) REFERENCES `{prefix}banners`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -87,4 +99,14 @@ CREATE TABLE `{prefix}credit_ledger` (
   `created_at` DATETIME NOT NULL,
   INDEX (`user_id`),
   FOREIGN KEY (`user_id`) REFERENCES `{prefix}users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `{prefix}email_campaigns` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `subject_line` VARCHAR(255) NOT NULL,
+  `body_text` MEDIUMTEXT NOT NULL,
+  `status` ENUM('draft','sending','sent') NOT NULL DEFAULT 'draft',
+  `sent_count` INT NOT NULL DEFAULT 0,
+  `created_at` DATETIME NOT NULL,
+  `sent_at` DATETIME NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

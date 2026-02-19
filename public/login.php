@@ -8,11 +8,12 @@ $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = $exchange->login($_POST['username'] ?? '', $_POST['password'] ?? '');
     if (!$user) {
-        $error = 'Pogrešan username/password';
+        $error = 'Invalid username/password';
     } else {
         $_SESSION['user_id'] = (int) $user['id'];
         $_SESSION['is_admin'] = (bool) $user['is_admin'];
-        header('Location: ' . ($user['is_admin'] ? '/admin.php' : '/dashboard.php'));
+        $_SESSION['moderator_rights'] = $exchange->moderatorRightsForUser((int) $user['id']);
+        header('Location: ' . ($user['is_admin'] || !empty($_SESSION['moderator_rights']) ? '/admin.php' : '/dashboard.php'));
         exit;
     }
 }
@@ -25,5 +26,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <input name="password" type="password" placeholder="Password" required>
     <button type="submit">Login</button>
 </form>
-<p>Nemaš račun? <a href="/register.php">Registracija</a></p>
+<p>No account yet? <a href="/register.php">Register</a></p>
 </body></html>

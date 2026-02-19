@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body style="font-family: Arial, sans-serif; max-width: 760px; margin: 20px auto;">
 <h1>Banner Exchange Installer</h1>
 <?php if ($done): ?>
-    <p style="color: green;">Instalacija uspješna. Login: <a href="/login.php">/login.php</a></p>
+    <p style="color: green;">Installation completed successfully. Login: <a href="/login.php">/login.php</a></p>
 <?php else: ?>
     <?php if ($error): ?><p style="color: red;"><?= htmlspecialchars($error) ?></p><?php endif; ?>
     <form method="post">

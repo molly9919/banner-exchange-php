@@ -38,9 +38,9 @@ final class BannerExchange
         $stmt = $pdo->prepare('INSERT INTO ' . $this->table('users') . ' (email, username, password_hash, timezone, country_code, agree_rules, is_approved, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())');
 
         $stmt->execute([
-            strtolower(trim($data['email'])),
-            trim($data['username']),
-            password_hash($data['password'], PASSWORD_DEFAULT),
+            strtolower(trim($data['email'] ?? '')),
+            trim((string) ($data['username'] ?? '')),
+            password_hash((string) ($data['password'] ?? ''), PASSWORD_DEFAULT),
             $data['timezone'] ?: 'UTC',
             strtoupper($data['country_code'] ?: 'ALL'),
             (int) !empty($data['agree_rules']),
@@ -64,6 +64,38 @@ final class BannerExchange
         }
 
         return $user;
+    }
+
+    public function moderatorRightsForUser(int $userId): array
+    {
+        $stmt = $this->db->pdo()->prepare('SELECT rights_json FROM ' . $this->table('moderators') . ' WHERE user_id = ? AND is_active = 1 LIMIT 1');
+        $stmt->execute([$userId]);
+        $json = $stmt->fetchColumn();
+
+        if (!$json) {
+            return [];
+        }
+
+        $rights = json_decode((string) $json, true);
+        return is_array($rights) ? $rights : [];
+    }
+
+    public function upsertModerator(int $userId, array $rights): void
+    {
+        $encoded = json_encode(array_values(array_unique($rights)), JSON_THROW_ON_ERROR);
+        $pdo = $this->db->pdo();
+        $stmt = $pdo->prepare('INSERT INTO ' . $this->table('moderators') . ' (user_id, rights_json, is_active, created_at, updated_at) VALUES (?, ?, 1, NOW(), NOW()) ON DUPLICATE KEY UPDATE rights_json = VALUES(rights_json), is_active = 1, updated_at = NOW()');
+        $stmt->execute([$userId, $encoded]);
+    }
+
+    public function listModerators(): array
+    {
+        $sql = 'SELECT m.id, m.user_id, m.rights_json, m.is_active, u.username, u.email
+                FROM ' . $this->table('moderators') . ' m
+                JOIN ' . $this->table('users') . ' u ON u.id = m.user_id
+                ORDER BY m.id DESC';
+
+        return $this->db->pdo()->query($sql)->fetchAll();
     }
 
     public function addCredits(int $userId, int $amount, string $reason): void
@@ -171,6 +203,95 @@ final class BannerExchange
             'clicks' => (int) $pdo->query('SELECT COUNT(*) FROM ' . $this->table('clicks'))->fetchColumn(),
             'top' => $pdo->query('SELECT username, credits FROM ' . $this->table('users') . ' ORDER BY credits DESC LIMIT 10')->fetchAll(),
         ];
+    }
+
+    public function detailedStats(string $period = 'day'): array
+    {
+        $period = in_array($period, ['hour', 'day', 'month'], true) ? $period : 'day';
+
+        $formats = [
+            'hour' => '%Y-%m-%d %H:00:00',
+            'day' => '%Y-%m-%d',
+            'month' => '%Y-%m',
+        ];
+
+        $limits = [
+            'hour' => 48,
+            'day' => 60,
+            'month' => 24,
+        ];
+
+        $impressions = $this->aggregateByPeriod('impressions', $formats[$period], $limits[$period]);
+        $clicks = $this->aggregateByPeriod('clicks', $formats[$period], $limits[$period]);
+
+        return [
+            'period' => $period,
+            'impressions' => $impressions,
+            'clicks' => $clicks,
+        ];
+    }
+
+    public function createCampaign(string $subject, string $body, bool $sendNow = false): int
+    {
+        $pdo = $this->db->pdo();
+        $stmt = $pdo->prepare('INSERT INTO ' . $this->table('email_campaigns') . ' (subject_line, body_text, status, created_at, sent_at) VALUES (?, ?, ?, NOW(), NULL)');
+        $stmt->execute([$subject, $body, $sendNow ? 'sending' : 'draft']);
+
+        $id = (int) $pdo->lastInsertId();
+        if ($sendNow) {
+            $this->sendCampaign($id);
+        }
+
+        return $id;
+    }
+
+    public function sendCampaign(int $campaignId): void
+    {
+        $pdo = $this->db->pdo();
+
+        $campaignStmt = $pdo->prepare('SELECT * FROM ' . $this->table('email_campaigns') . ' WHERE id = ? LIMIT 1');
+        $campaignStmt->execute([$campaignId]);
+        $campaign = $campaignStmt->fetch();
+        if (!$campaign) {
+            return;
+        }
+
+        $users = $pdo->query('SELECT email FROM ' . $this->table('users') . ' WHERE is_approved = 1')->fetchAll();
+        $sent = 0;
+
+        foreach ($users as $user) {
+            $email = (string) $user['email'];
+            if (!$email) {
+                continue;
+            }
+
+            @mail($email, (string) $campaign['subject_line'], (string) $campaign['body_text']);
+            $sent++;
+        }
+
+        $update = $pdo->prepare('UPDATE ' . $this->table('email_campaigns') . ' SET status = ?, sent_count = ?, sent_at = NOW() WHERE id = ?');
+        $update->execute(['sent', $sent, $campaignId]);
+    }
+
+    public function listCampaigns(): array
+    {
+        return $this->db->pdo()->query('SELECT * FROM ' . $this->table('email_campaigns') . ' ORDER BY id DESC')->fetchAll();
+    }
+
+    private function aggregateByPeriod(string $tableSuffix, string $dateFormat, int $limit): array
+    {
+        $table = $this->table($tableSuffix);
+        $sql = 'SELECT DATE_FORMAT(created_at, :fmt) AS bucket, COUNT(*) AS total
+                FROM ' . $table . '
+                GROUP BY bucket
+                ORDER BY bucket DESC
+                LIMIT ' . (int) $limit;
+
+        $stmt = $this->db->pdo()->prepare($sql);
+        $stmt->execute(['fmt' => $dateFormat]);
+        $rows = $stmt->fetchAll();
+
+        return array_reverse($rows);
     }
 
     private function grantViewerCredit(int $viewerUserId): void
