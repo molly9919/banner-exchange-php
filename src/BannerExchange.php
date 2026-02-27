@@ -208,6 +208,13 @@ final class BannerExchange
             $banner = $stmt->fetch();
         }
 
+        // Last-resort fallback: ignore targeting windows to avoid blank widgets/no impressions.
+        if (!$banner) {
+            $stmt = $this->db->pdo()->prepare('SELECT b.* FROM ' . $this->table('banners') . ' b JOIN ' . $this->table('users') . ' u ON u.id = b.user_id WHERE b.is_active = 1 AND u.is_approved = 1 AND b.size_key = :size ORDER BY b.is_sponsored DESC, b.priority DESC, RAND() LIMIT 1');
+            $stmt->execute(['size' => $sizeKey]);
+            $banner = $stmt->fetch();
+        }
+
         if (!$banner) {
             return null;
         }

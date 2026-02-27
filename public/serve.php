@@ -8,15 +8,9 @@ $size = $_GET['size'] ?? '468x60';
 $userId = (int) ($_GET['user'] ?? 0);
 $country = $_GET['country'] ?? 'ALL';
 
-if ($userId <= 0) {
-    http_response_code(400);
-    echo 'Missing user';
-    exit;
-}
-
 $banner = $exchange->pickBanner($size, $userId, $country);
 if (!$banner) {
-    http_response_code(204);
+    echo '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#111;color:#ffd400;font:14px Arial">No banner available</div>';
     exit;
 }
 
