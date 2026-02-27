@@ -60,11 +60,7 @@ final class BannerExchange
         $this->addCredits($userId, 100, 'welcome_bonus');
 
         if ($requireEmailVerification && $verifyToken) {
-            $appUrl = rtrim((string) ($settings['app_url'] ?? ''), '/');
-            if ($appUrl === '' && isset($_SERVER['HTTP_HOST'])) {
-                $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-                $appUrl = $scheme . '://' . $_SERVER['HTTP_HOST'];
-            }
+            $appUrl = $this->appUrl();
             if ($appUrl !== '') {
                 $verifyUrl = $appUrl . '/verify_email.php?token=' . urlencode($verifyToken);
                 @mail(strtolower(trim($data['email'] ?? '')), 'Verify your account', "Please verify your account by opening: {$verifyUrl}");
@@ -326,6 +322,101 @@ final class BannerExchange
     public function listCampaigns(): array
     {
         return $this->db->pdo()->query('SELECT * FROM ' . $this->table('email_campaigns') . ' ORDER BY id DESC')->fetchAll();
+    }
+
+
+    public function changePassword(int $userId, string $currentPassword, string $newPassword): array
+    {
+        if (strlen($newPassword) < 6) {
+            return ['ok' => false, 'error' => 'New password must be at least 6 characters long.'];
+        }
+
+        $stmt = $this->db->pdo()->prepare('SELECT password_hash FROM ' . $this->table('users') . ' WHERE id = ? LIMIT 1');
+        $stmt->execute([$userId]);
+        $hash = (string) $stmt->fetchColumn();
+
+        if ($hash === '' || !password_verify($currentPassword, $hash)) {
+            return ['ok' => false, 'error' => 'Current password is not correct.'];
+        }
+
+        $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
+        $this->db->pdo()->prepare('UPDATE ' . $this->table('users') . ' SET password_hash = ? WHERE id = ?')->execute([$newHash, $userId]);
+
+        return ['ok' => true, 'error' => null];
+    }
+
+    public function adminSetPassword(int $userId, string $newPassword): array
+    {
+        if (strlen($newPassword) < 6) {
+            return ['ok' => false, 'error' => 'Password must be at least 6 characters long.'];
+        }
+
+        $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
+        $this->db->pdo()->prepare('UPDATE ' . $this->table('users') . ' SET password_hash = ? WHERE id = ?')->execute([$newHash, $userId]);
+
+        return ['ok' => true, 'error' => null];
+    }
+
+    public function requestPasswordReset(string $email): bool
+    {
+        $email = strtolower(trim($email));
+        if ($email === '') {
+            return false;
+        }
+
+        $stmt = $this->db->pdo()->prepare('SELECT id FROM ' . $this->table('users') . ' WHERE email = ? LIMIT 1');
+        $stmt->execute([$email]);
+        $userId = (int) $stmt->fetchColumn();
+        if ($userId <= 0) {
+            return true;
+        }
+
+        $token = bin2hex(random_bytes(24));
+        $this->db->pdo()->prepare('UPDATE ' . $this->table('users') . ' SET reset_token = ?, reset_expires_at = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id = ?')->execute([$token, $userId]);
+
+        $url = $this->appUrl() . '/reset_password.php?token=' . urlencode($token);
+        @mail($email, 'Password reset', "Open this link to reset your password: {$url}");
+
+        return true;
+    }
+
+    public function resetPasswordByToken(string $token, string $newPassword): array
+    {
+        if ($token === '') {
+            return ['ok' => false, 'error' => 'Reset token is missing.'];
+        }
+        if (strlen($newPassword) < 6) {
+            return ['ok' => false, 'error' => 'New password must be at least 6 characters long.'];
+        }
+
+        $stmt = $this->db->pdo()->prepare('SELECT id FROM ' . $this->table('users') . ' WHERE reset_token = ? AND reset_expires_at IS NOT NULL AND reset_expires_at >= NOW() LIMIT 1');
+        $stmt->execute([$token]);
+        $userId = (int) $stmt->fetchColumn();
+
+        if ($userId <= 0) {
+            return ['ok' => false, 'error' => 'Reset token is invalid or expired.'];
+        }
+
+        $hash = password_hash($newPassword, PASSWORD_DEFAULT);
+        $this->db->pdo()->prepare('UPDATE ' . $this->table('users') . ' SET password_hash = ?, reset_token = NULL, reset_expires_at = NULL WHERE id = ?')->execute([$hash, $userId]);
+
+        return ['ok' => true, 'error' => null];
+    }
+
+    private function appUrl(): string
+    {
+        $settings = $this->settings();
+        $appUrl = rtrim((string) ($settings['app_url'] ?? ''), '/');
+        if ($appUrl !== '') {
+            return $appUrl;
+        }
+
+        if (isset($_SERVER['HTTP_HOST'])) {
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            return $scheme . '://' . $_SERVER['HTTP_HOST'];
+        }
+
+        return '';
     }
 
     private function aggregateByPeriod(string $tableSuffix, string $dateFormat, int $limit): array

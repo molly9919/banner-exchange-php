@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <input name="password" type="password" placeholder="Password" required>
         <button type="submit">Login</button>
     </form>
-    <div class="card small">No account yet? <a href="/register.php">Register</a></div>
+    <div class="card small">No account yet? <a href="/register.php">Register</a> · <a href="/forgot_password.php">Forgot password?</a></div>
 </div>
 </body>
 </html>

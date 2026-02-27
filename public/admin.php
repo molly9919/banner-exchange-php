@@ -56,6 +56,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = 'Settings saved.';
         }
 
+
+        if ($action === 'set_user_password') {
+            App\Auth::requireRight('settings.manage');
+            $targetUserId = (int) ($_POST['target_user_id'] ?? 0);
+            $newPassword = (string) ($_POST['new_password'] ?? '');
+            $confirmPassword = (string) ($_POST['confirm_password'] ?? '');
+
+            if ($targetUserId <= 0) {
+                throw new RuntimeException('Please select a user.');
+            }
+            if ($newPassword !== $confirmPassword) {
+                throw new RuntimeException('Passwords do not match.');
+            }
+
+            $res = $exchange->adminSetPassword($targetUserId, $newPassword);
+            if (empty($res['ok'])) {
+                throw new RuntimeException((string) ($res['error'] ?? 'Unable to change password.'));
+            }
+
+            $message = 'User password updated.';
+        }
+
         if ($action === 'save_moderator') {
             App\Auth::requireRight('moderators.manage');
             $userId = (int) ($_POST['moderator_user_id'] ?? 0);
@@ -157,6 +179,23 @@ $rightsCatalog = ['settings.manage', 'moderators.manage', 'campaigns.manage', 'b
         <label><input type="checkbox" name="require_email_verification" value="1" style="width:auto" <?= !empty($settings['require_email_verification']) ? 'checked' : '' ?>> Require email verification on registration</label>
         <label><input type="checkbox" name="require_admin_approval" value="1" style="width:auto" <?= !empty($settings['require_admin_approval']) ? 'checked' : '' ?>> Require admin approval for new accounts</label>
         <button type="submit">Save settings</button>
+    </form>
+    <?php endif; ?>
+
+
+    <?php if (App\Auth::hasRight('settings.manage')): ?>
+    <form class="card" method="post">
+        <h2>Admin: change any user password</h2>
+        <input type="hidden" name="action" value="set_user_password">
+        <select name="target_user_id" required>
+            <option value="">Select user</option>
+            <?php foreach ($users as $u): ?>
+                <option value="<?= (int) $u['id'] ?>"><?= htmlspecialchars($u['username']) ?> (<?= htmlspecialchars($u['email']) ?>)</option>
+            <?php endforeach; ?>
+        </select>
+        <input type="password" name="new_password" placeholder="New password" required>
+        <input type="password" name="confirm_password" placeholder="Confirm new password" required>
+        <button type="submit">Set password</button>
     </form>
     <?php endif; ?>
 

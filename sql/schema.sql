@@ -19,6 +19,8 @@ CREATE TABLE `{prefix}users` (
   `agree_rules` TINYINT(1) NOT NULL DEFAULT 0,
   `email_verified_at` DATETIME NULL,
   `verify_token` VARCHAR(80) NULL,
+  `reset_token` VARCHAR(80) NULL,
+  `reset_expires_at` DATETIME NULL,
   `created_at` DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

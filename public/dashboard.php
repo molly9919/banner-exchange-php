@@ -7,30 +7,55 @@ require __DIR__ . '/../src/bootstrap.php';
 App\Auth::requireUser();
 $userId = App\Auth::userId();
 
+$message = null;
+$error = null;
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_FILES['banner_file']) && (int) ($_FILES['banner_file']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
-        $name = (string) ($_FILES['banner_file']['name'] ?? '');
-        $tmp = (string) ($_FILES['banner_file']['tmp_name'] ?? '');
-        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-        $allowed = ['gif', 'jpg', 'jpeg', 'png', 'swf'];
+    $action = (string) ($_POST['action'] ?? 'add_banner');
 
-        if (in_array($ext, $allowed, true) && is_uploaded_file($tmp)) {
-            $uploadDir = __DIR__ . '/uploads/banners';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0775, true);
-            }
+    if ($action === 'change_password') {
+        $current = (string) ($_POST['current_password'] ?? '');
+        $new = (string) ($_POST['new_password'] ?? '');
+        $confirm = (string) ($_POST['confirm_password'] ?? '');
 
-            $target = $uploadDir . '/' . bin2hex(random_bytes(12)) . '.' . $ext;
-            if (move_uploaded_file($tmp, $target)) {
-                $_POST['image_url'] = '/uploads/banners/' . basename($target);
-                if (empty($_POST['type']) || $_POST['type'] === 'html') {
-                    $_POST['type'] = $ext === 'swf' ? 'swf' : 'png';
-                }
+        if ($new !== $confirm) {
+            $error = 'New passwords do not match.';
+        } else {
+            $res = $exchange->changePassword((int) $userId, $current, $new);
+            if (!empty($res['ok'])) {
+                $message = 'Password changed successfully.';
+            } else {
+                $error = (string) ($res['error'] ?? 'Could not change password.');
             }
         }
     }
 
-    $exchange->addBanner($userId, $_POST);
+    if ($action === 'add_banner') {
+        if (isset($_FILES['banner_file']) && (int) ($_FILES['banner_file']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+            $name = (string) ($_FILES['banner_file']['name'] ?? '');
+            $tmp = (string) ($_FILES['banner_file']['tmp_name'] ?? '');
+            $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+            $allowed = ['gif', 'jpg', 'jpeg', 'png', 'swf'];
+
+            if (in_array($ext, $allowed, true) && is_uploaded_file($tmp)) {
+                $uploadDir = __DIR__ . '/uploads/banners';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0775, true);
+                }
+
+                $target = $uploadDir . '/' . bin2hex(random_bytes(12)) . '.' . $ext;
+                if (move_uploaded_file($tmp, $target)) {
+                    $_POST['image_url'] = '/uploads/banners/' . basename($target);
+                    if (empty($_POST['type']) || $_POST['type'] === 'html') {
+                        $_POST['type'] = $ext === 'swf' ? 'swf' : 'png';
+                    }
+                }
+            }
+        }
+
+        $exchange->addBanner($userId, $_POST);
+        $message = $message ?? 'Banner saved.';
+    }
 }
 
 $pdo = $db->pdo();
@@ -58,7 +83,11 @@ $categories = $pdo->query('SELECT * FROM ' . $prefix . 'categories ORDER BY name
         </div>
     </div>
 
+    <?php if ($message): ?><div class="alert ok"><?= htmlspecialchars($message) ?></div><?php endif; ?>
+    <?php if ($error): ?><div class="alert err"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+
     <form class="card" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="add_banner">
         <h2>Add banner</h2>
         <div class="inline">
             <input name="size_key" placeholder="size_key (e.g. 468x60)" required>
@@ -86,6 +115,16 @@ $categories = $pdo->query('SELECT * FROM ' . $prefix . 'categories ORDER BY name
             <input name="priority" value="0" placeholder="Priority">
         </div>
         <button type="submit">Save banner</button>
+    </form>
+
+
+    <form class="card" method="post">
+        <h2>Change my password</h2>
+        <input type="hidden" name="action" value="change_password">
+        <input type="password" name="current_password" placeholder="Current password" required>
+        <input type="password" name="new_password" placeholder="New password" required>
+        <input type="password" name="confirm_password" placeholder="Confirm new password" required>
+        <button type="submit">Update password</button>
     </form>
 
     <div class="card table-wrap">
