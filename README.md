@@ -43,7 +43,7 @@ A simple, extensible **banner exchange** application in plain PHP with a MySQL b
 
 ## Embed exchange code on user websites
 
-Example (iframe):
+Example (iframe, available sizes seeded by installer include 468x60, 728x90, 300x250, 300x300):
 
 ```html
 <iframe src="https://your-domain/serve.php?size=468x60&user=42" width="468" height="60" frameborder="0" scrolling="no"></iframe>

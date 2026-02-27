@@ -65,8 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$alreadyInstalled) {
             $sStmt->execute([$key, $value]);
         }
 
-        $pdo->exec('INSERT INTO ' . $prefix . 'banner_sizes (size_key, width, height, exchange_ratio, max_banners_per_user) VALUES ("468x60",468,60,1.00,10),("728x90",728,90,1.00,10),("300x250",300,250,1.00,10)');
-        $pdo->exec('INSERT INTO ' . $prefix . 'categories (size_key,name) VALUES ("468x60","General"),("728x90","General"),("300x250","General")');
+        $pdo->exec('INSERT INTO ' . $prefix . 'banner_sizes (size_key, width, height, exchange_ratio, max_banners_per_user) VALUES ("468x60",468,60,1.00,10),("728x90",728,90,1.00,10),("300x250",300,250,1.00,10),("300x300",300,300,1.00,10)');
+        $pdo->exec('INSERT INTO ' . $prefix . 'categories (size_key,name) VALUES ("468x60","General"),("728x90","General"),("300x250","General"),("300x300","General")');
 
         if (!is_dir(__DIR__ . '/../config') && !mkdir(__DIR__ . '/../config', 0775, true) && !is_dir(__DIR__ . '/../config')) {
             throw new RuntimeException('Could not create config directory.');
