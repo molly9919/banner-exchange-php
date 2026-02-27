@@ -55,6 +55,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$alreadyInstalled) {
             'exchange_mode' => 'both',
             'max_banners_per_user' => '10',
             'bonus_per_impression' => '1',
+            'require_email_verification' => '0',
+            'require_admin_approval' => '0',
+            'app_url' => '',
         ];
 
         $sStmt = $pdo->prepare('INSERT INTO ' . $prefix . 'settings (key_name, value_text) VALUES (?, ?)');

@@ -8,6 +8,28 @@ App\Auth::requireUser();
 $userId = App\Auth::userId();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_FILES['banner_file']) && (int) ($_FILES['banner_file']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+        $name = (string) ($_FILES['banner_file']['name'] ?? '');
+        $tmp = (string) ($_FILES['banner_file']['tmp_name'] ?? '');
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        $allowed = ['gif', 'jpg', 'jpeg', 'png', 'swf'];
+
+        if (in_array($ext, $allowed, true) && is_uploaded_file($tmp)) {
+            $uploadDir = __DIR__ . '/uploads/banners';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0775, true);
+            }
+
+            $target = $uploadDir . '/' . bin2hex(random_bytes(12)) . '.' . $ext;
+            if (move_uploaded_file($tmp, $target)) {
+                $_POST['image_url'] = '/uploads/banners/' . basename($target);
+                if (empty($_POST['type']) || $_POST['type'] === 'html') {
+                    $_POST['type'] = $ext === 'swf' ? 'swf' : 'png';
+                }
+            }
+        }
+    }
+
     $exchange->addBanner($userId, $_POST);
 }
 
@@ -36,7 +58,7 @@ $categories = $pdo->query('SELECT * FROM ' . $prefix . 'categories ORDER BY name
         </div>
     </div>
 
-    <form class="card" method="post">
+    <form class="card" method="post" enctype="multipart/form-data">
         <h2>Add banner</h2>
         <div class="inline">
             <input name="size_key" placeholder="size_key (e.g. 468x60)" required>
@@ -47,7 +69,9 @@ $categories = $pdo->query('SELECT * FROM ' . $prefix . 'categories ORDER BY name
             </select>
             <select name="type"><option>gif</option><option>jpg</option><option>png</option><option>swf</option><option value="html">html</option></select>
         </div>
-        <input name="image_url" placeholder="Image URL (for image banner types)">
+        <input name="image_url" placeholder="Image URL (for remote image banners)">
+        <input type="file" name="banner_file" accept=".gif,.jpg,.jpeg,.png,.swf">
+        <p class="small">You can upload a local banner file or use a remote Image URL.</p>
         <textarea name="html_code" placeholder="HTML/Text ad code"></textarea>
         <input name="target_url" placeholder="Target URL">
         <input name="alt_text" placeholder="Alt text">

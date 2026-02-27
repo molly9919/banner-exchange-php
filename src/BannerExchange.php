@@ -35,7 +35,14 @@ final class BannerExchange
     public function register(array $data): array
     {
         $pdo = $this->db->pdo();
-        $stmt = $pdo->prepare('INSERT INTO ' . $this->table('users') . ' (email, username, password_hash, timezone, country_code, agree_rules, is_approved, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())');
+        $settings = $this->settings();
+        $requireEmailVerification = (int) ($settings['require_email_verification'] ?? 0) === 1;
+        $requireAdminApproval = (int) ($settings['require_admin_approval'] ?? 0) === 1;
+
+        $verifyToken = $requireEmailVerification ? bin2hex(random_bytes(24)) : null;
+        $isApproved = $requireAdminApproval ? 0 : 1;
+
+        $stmt = $pdo->prepare('INSERT INTO ' . $this->table('users') . ' (email, username, password_hash, timezone, country_code, agree_rules, is_approved, email_verified_at, verify_token, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())');
 
         $stmt->execute([
             strtolower(trim($data['email'] ?? '')),
@@ -44,26 +51,69 @@ final class BannerExchange
             $data['timezone'] ?: 'UTC',
             strtoupper($data['country_code'] ?: 'ALL'),
             (int) !empty($data['agree_rules']),
-            1,
+            $isApproved,
+            $requireEmailVerification ? null : gmdate('Y-m-d H:i:s'),
+            $verifyToken,
         ]);
 
         $userId = (int) $pdo->lastInsertId();
         $this->addCredits($userId, 100, 'welcome_bonus');
 
-        return ['id' => $userId];
+        if ($requireEmailVerification && $verifyToken) {
+            $appUrl = rtrim((string) ($settings['app_url'] ?? ''), '/');
+            if ($appUrl === '' && isset($_SERVER['HTTP_HOST'])) {
+                $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                $appUrl = $scheme . '://' . $_SERVER['HTTP_HOST'];
+            }
+            if ($appUrl !== '') {
+                $verifyUrl = $appUrl . '/verify_email.php?token=' . urlencode($verifyToken);
+                @mail(strtolower(trim($data['email'] ?? '')), 'Verify your account', "Please verify your account by opening: {$verifyUrl}");
+            }
+        }
+
+        return [
+            'id' => $userId,
+            'requires_email_verification' => $requireEmailVerification,
+            'requires_admin_approval' => $requireAdminApproval,
+        ];
     }
 
-    public function login(string $username, string $password): ?array
+    public function authenticate(string $username, string $password): array
     {
         $stmt = $this->db->pdo()->prepare('SELECT * FROM ' . $this->table('users') . ' WHERE username = ? LIMIT 1');
         $stmt->execute([$username]);
         $user = $stmt->fetch();
 
         if (!$user || !password_verify($password, $user['password_hash'])) {
-            return null;
+            return ['user' => null, 'error' => 'Invalid username/password'];
         }
 
-        return $user;
+        if (empty($user['email_verified_at']) && !empty($user['verify_token'])) {
+            return ['user' => null, 'error' => 'Please verify your email address before login.'];
+        }
+
+        if ((int) $user['is_approved'] !== 1) {
+            return ['user' => null, 'error' => 'Your account is waiting for admin approval.'];
+        }
+
+        return ['user' => $user, 'error' => null];
+    }
+
+    public function login(string $username, string $password): ?array
+    {
+        $auth = $this->authenticate($username, $password);
+        return $auth['user'];
+    }
+
+    public function verifyEmailToken(string $token): bool
+    {
+        if ($token === '') {
+            return false;
+        }
+
+        $stmt = $this->db->pdo()->prepare('UPDATE ' . $this->table('users') . ' SET email_verified_at = NOW(), verify_token = NULL WHERE verify_token = ? AND email_verified_at IS NULL');
+        $stmt->execute([$token]);
+        return $stmt->rowCount() > 0;
     }
 
     public function moderatorRightsForUser(int $userId): array

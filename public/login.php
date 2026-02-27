@@ -6,9 +6,10 @@ require __DIR__ . '/../src/bootstrap.php';
 
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $user = $exchange->login($_POST['username'] ?? '', $_POST['password'] ?? '');
+    $auth = $exchange->authenticate($_POST['username'] ?? '', $_POST['password'] ?? '');
+    $user = $auth['user'];
     if (!$user) {
-        $error = 'Invalid username/password';
+        $error = (string) ($auth['error'] ?? 'Invalid username/password');
     } else {
         $_SESSION['user_id'] = (int) $user['id'];
         $_SESSION['is_admin'] = (bool) $user['is_admin'];

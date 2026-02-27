@@ -44,11 +44,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'save_settings') {
             App\Auth::requireRight('settings.manage');
             $stmt = $pdo->prepare('UPDATE ' . $prefix . 'settings SET value_text = ? WHERE key_name = ?');
-            foreach (['global_exchange_ratio', 'exchange_mode', 'max_banners_per_user', 'bonus_per_impression'] as $key) {
+            foreach (['global_exchange_ratio', 'exchange_mode', 'max_banners_per_user', 'bonus_per_impression', 'app_url'] as $key) {
                 if (isset($_POST[$key])) {
                     $stmt->execute([trim((string) $_POST[$key]), $key]);
                 }
             }
+
+            $stmt->execute([!empty($_POST['require_email_verification']) ? '1' : '0', 'require_email_verification']);
+            $stmt->execute([!empty($_POST['require_admin_approval']) ? '1' : '0', 'require_admin_approval']);
+
             $message = 'Settings saved.';
         }
 
@@ -149,6 +153,9 @@ $rightsCatalog = ['settings.manage', 'moderators.manage', 'campaigns.manage', 'b
             <input name="max_banners_per_user" value="<?= htmlspecialchars($settings['max_banners_per_user'] ?? '10') ?>" placeholder="Max banners/user">
             <input name="bonus_per_impression" value="<?= htmlspecialchars($settings['bonus_per_impression'] ?? '1') ?>" placeholder="Bonus per impression">
         </div>
+        <input name="app_url" value="<?= htmlspecialchars($settings['app_url'] ?? '') ?>" placeholder="App URL (e.g. https://your-domain.com)">
+        <label><input type="checkbox" name="require_email_verification" value="1" style="width:auto" <?= !empty($settings['require_email_verification']) ? 'checked' : '' ?>> Require email verification on registration</label>
+        <label><input type="checkbox" name="require_admin_approval" value="1" style="width:auto" <?= !empty($settings['require_admin_approval']) ? 'checked' : '' ?>> Require admin approval for new accounts</label>
         <button type="submit">Save settings</button>
     </form>
     <?php endif; ?>

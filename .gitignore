@@ -1,3 +1,7 @@
 /config/config.php
 /storage/*
 !.gitkeep
+/public/uploads/*
+!/public/uploads/.gitkeep
+!/public/uploads/banners/
+!/public/uploads/banners/.gitkeep

@@ -17,6 +17,8 @@ CREATE TABLE `{prefix}users` (
   `is_admin` TINYINT(1) NOT NULL DEFAULT 0,
   `is_approved` TINYINT(1) NOT NULL DEFAULT 1,
   `agree_rules` TINYINT(1) NOT NULL DEFAULT 0,
+  `email_verified_at` DATETIME NULL,
+  `verify_token` VARCHAR(80) NULL,
   `created_at` DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

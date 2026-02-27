@@ -5,11 +5,21 @@ declare(strict_types=1);
 require __DIR__ . '/../src/bootstrap.php';
 
 $error = null;
+$success = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-        $exchange->register($_POST);
-        header('Location: /login.php');
-        exit;
+        $result = $exchange->register($_POST);
+        $parts = ['Account created successfully.'];
+        if (!empty($result['requires_email_verification'])) {
+            $parts[] = 'Please check your email and click the verification link.';
+        }
+        if (!empty($result['requires_admin_approval'])) {
+            $parts[] = 'Your account is pending admin approval.';
+        }
+        if (empty($result['requires_email_verification']) && empty($result['requires_admin_approval'])) {
+            $parts[] = 'You can now login.';
+        }
+        $success = implode(' ', $parts);
     } catch (Throwable $e) {
         $error = $e->getMessage();
     }
@@ -27,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="container" style="max-width:700px;">
     <div class="card"><h1>Create account</h1></div>
     <?php if ($error): ?><div class="alert err"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+    <?php if ($success): ?><div class="alert ok"><?= htmlspecialchars($success) ?></div><?php endif; ?>
     <form class="card" method="post">
         <input name="email" type="email" placeholder="Email" required>
         <input name="username" placeholder="Username" required>
