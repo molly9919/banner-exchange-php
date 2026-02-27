@@ -10,7 +10,7 @@ CREATE TABLE `{prefix}users` (
   `username` VARCHAR(60) NOT NULL UNIQUE,
   `password_hash` VARCHAR(255) NOT NULL,
   `timezone` VARCHAR(60) NOT NULL DEFAULT 'UTC',
-  `country_code` VARCHAR(2) NOT NULL DEFAULT 'ALL',
+  `country_code` VARCHAR(3) NOT NULL DEFAULT 'ALL',
   `credits` INT NOT NULL DEFAULT 0,
   `exchange_ratio` DECIMAL(5,2) NOT NULL DEFAULT 1.00,
   `click_bonus` INT NOT NULL DEFAULT 1,
