@@ -29,6 +29,7 @@ A simple, extensible **banner exchange** application in plain PHP with a MySQL b
 - Unified yellow/black UI theme for installer, public pages, user dashboard and admin backend.
 - Public endpoints:
   - `serve.php?size=...&user=...` to serve banners,
+  - `adjs.php?size=...&user=...` JS embed for CMS/WordPress HTML widgets,
   - `click.php?token=...` to track clicks and redirect,
   - `public_stats.php` for public summary/toplist.
 
@@ -42,13 +43,19 @@ A simple, extensible **banner exchange** application in plain PHP with a MySQL b
 
 ## Embed exchange code on user websites
 
-Example:
+Example (iframe):
 
 ```html
 <iframe src="https://your-domain/serve.php?size=468x60&user=42" width="468" height="60" frameborder="0" scrolling="no"></iframe>
 ```
 
 > `user` is the owner ID of the page where the exchange unit is displayed; credits are assigned to that account.
+
+WordPress widget-safe embed (JS):
+
+```html
+<script async src="https://your-domain/adjs.php?size=468x60&user=42"></script>
+```
 
 ## Enterprise modules overview
 

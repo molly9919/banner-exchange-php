@@ -182,25 +182,32 @@ final class BannerExchange
         $day = (int) $now->format('N');
         $hour = (int) $now->format('G');
 
-        $sql = 'SELECT b.* FROM ' . $this->table('banners') . ' b
-                JOIN ' . $this->table('users') . ' u ON u.id = b.user_id
-                WHERE b.is_active = 1 AND u.is_approved = 1 AND b.size_key = :size AND b.user_id != :viewer
-                  AND (b.countries = "ALL" OR FIND_IN_SET(:country, b.countries) > 0)
-                  AND FIND_IN_SET(:day, b.allowed_days) > 0
-                  AND :hour BETWEEN b.start_hour AND b.end_hour
-                ORDER BY b.is_sponsored DESC, b.priority DESC, RAND()
-                LIMIT 1';
-
-        $stmt = $this->db->pdo()->prepare($sql);
-        $stmt->execute([
+        $params = [
             'size' => $sizeKey,
             'viewer' => $viewerUserId,
             'country' => strtoupper($countryCode),
             'day' => (string) $day,
             'hour' => $hour,
-        ]);
+        ];
 
+        $base = 'SELECT b.* FROM ' . $this->table('banners') . ' b
+                 JOIN ' . $this->table('users') . ' u ON u.id = b.user_id
+                 WHERE b.is_active = 1 AND u.is_approved = 1 AND b.size_key = :size
+                   AND (b.countries = "ALL" OR FIND_IN_SET(:country, b.countries) > 0)
+                   AND FIND_IN_SET(:day, b.allowed_days) > 0
+                   AND :hour BETWEEN b.start_hour AND b.end_hour';
+
+        $stmt = $this->db->pdo()->prepare($base . ' AND b.user_id != :viewer ORDER BY b.is_sponsored DESC, b.priority DESC, RAND() LIMIT 1');
+        $stmt->execute($params);
         $banner = $stmt->fetch();
+
+        // Fallback for small/new exchanges: if no third-party banners exist yet, allow own banner.
+        if (!$banner) {
+            $stmt = $this->db->pdo()->prepare($base . ' ORDER BY b.is_sponsored DESC, b.priority DESC, RAND() LIMIT 1');
+            $stmt->execute($params);
+            $banner = $stmt->fetch();
+        }
+
         if (!$banner) {
             return null;
         }
