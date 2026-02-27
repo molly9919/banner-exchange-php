@@ -18,13 +18,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-<!doctype html><html><body style="font-family: Arial; max-width: 460px; margin: 40px auto;">
-<h1>Login</h1>
-<?php if ($error): ?><p style="color: red"><?= htmlspecialchars($error) ?></p><?php endif; ?>
-<form method="post">
-    <input name="username" placeholder="Username" required>
-    <input name="password" type="password" placeholder="Password" required>
-    <button type="submit">Login</button>
-</form>
-<p>No account yet? <a href="/register.php">Register</a></p>
-</body></html>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div class="container" style="max-width:560px;">
+    <div class="card">
+        <h1>Login</h1>
+        <p class="small">Access your yellow/black dashboard.</p>
+    </div>
+    <?php if ($error): ?><div class="alert err"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+    <form class="card" method="post">
+        <input name="username" placeholder="Username" required>
+        <input name="password" type="password" placeholder="Password" required>
+        <button type="submit">Login</button>
+    </form>
+    <div class="card small">No account yet? <a href="/register.php">Register</a></div>
+</div>
+</body>
+</html>

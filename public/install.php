@@ -3,29 +3,46 @@
 declare(strict_types=1);
 
 $error = null;
-$done = false;
+$success = null;
+$configPath = __DIR__ . '/../config/config.php';
+$alreadyInstalled = file_exists($configPath);
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $host = trim($_POST['host'] ?? '127.0.0.1');
-    $port = (int) ($_POST['port'] ?? 3306);
-    $dbName = trim($_POST['name'] ?? '');
-    $user = trim($_POST['user'] ?? '');
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$alreadyInstalled) {
+    $host = trim((string) ($_POST['host'] ?? '127.0.0.1'));
+    $port = max(1, (int) ($_POST['port'] ?? 3306));
+    $dbName = trim((string) ($_POST['name'] ?? ''));
+    $user = trim((string) ($_POST['user'] ?? ''));
     $pass = (string) ($_POST['pass'] ?? '');
-    $prefix = preg_replace('/[^a-zA-Z0-9_]/', '', $_POST['prefix'] ?? 'bx_');
-    $adminUser = trim($_POST['admin_user'] ?? 'admin');
-    $adminEmail = trim($_POST['admin_email'] ?? 'admin@example.com');
-    $adminPass = (string) ($_POST['admin_pass'] ?? 'admin123');
+    $prefix = preg_replace('/[^a-zA-Z0-9_]/', '', (string) ($_POST['prefix'] ?? 'bx_'));
+    $adminUser = trim((string) ($_POST['admin_user'] ?? 'admin'));
+    $adminEmail = trim((string) ($_POST['admin_email'] ?? 'admin@example.com'));
+    $adminPass = (string) ($_POST['admin_pass'] ?? '');
 
     try {
+        if ($dbName === '' || $user === '' || $prefix === '' || $adminUser === '' || $adminEmail === '' || $adminPass === '') {
+            throw new RuntimeException('Please fill in all required fields.');
+        }
+
+        if (!filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('Admin email is not valid.');
+        }
+
         $pdo = new PDO(sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $host, $port, $dbName), $user, $pass, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         ]);
 
         $schema = file_get_contents(__DIR__ . '/../sql/schema.sql');
-        $schema = str_replace('{prefix}', $prefix, $schema);
+        if ($schema === false) {
+            throw new RuntimeException('Could not read schema file.');
+        }
 
+        $pdo->beginTransaction();
+
+        $schema = str_replace('{prefix}', $prefix, $schema);
         foreach (array_filter(array_map('trim', explode(';', $schema))) as $query) {
-            $pdo->exec($query);
+            if ($query !== '') {
+                $pdo->exec($query);
+            }
         }
 
         $passwordHash = password_hash($adminPass, PASSWORD_DEFAULT);
@@ -47,6 +64,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->exec('INSERT INTO ' . $prefix . 'banner_sizes (size_key, width, height, exchange_ratio, max_banners_per_user) VALUES ("468x60",468,60,1.00,10),("728x90",728,90,1.00,10),("300x250",300,250,1.00,10)');
         $pdo->exec('INSERT INTO ' . $prefix . 'categories (size_key,name) VALUES ("468x60","General"),("728x90","General"),("300x250","General")');
 
+        if (!is_dir(__DIR__ . '/../config') && !mkdir(__DIR__ . '/../config', 0775, true) && !is_dir(__DIR__ . '/../config')) {
+            throw new RuntimeException('Could not create config directory.');
+        }
+
         $config = "<?php\n\nreturn " . var_export([
             'db' => [
                 'host' => $host,
@@ -59,40 +80,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'app' => ['name' => 'Banner Exchange'],
         ], true) . ";\n";
 
-        if (!is_dir(__DIR__ . '/../config')) {
-            mkdir(__DIR__ . '/../config', 0775, true);
+        if (file_put_contents($configPath, $config) === false) {
+            throw new RuntimeException('Could not write config/config.php.');
         }
 
-        file_put_contents(__DIR__ . '/../config/config.php', $config);
-        $done = true;
+        $pdo->commit();
+        $success = '✅ Installation is complete. You can now log in at /login.php with your admin account.';
+        $alreadyInstalled = true;
     } catch (Throwable $e) {
+        if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         $error = $e->getMessage();
     }
 }
 ?>
 <!doctype html>
 <html lang="en">
-<head><meta charset="UTF-8"><title>Installer</title></head>
-<body style="font-family: Arial, sans-serif; max-width: 760px; margin: 20px auto;">
-<h1>Banner Exchange Installer</h1>
-<?php if ($done): ?>
-    <p style="color: green;">Installation completed successfully. Login: <a href="/login.php">/login.php</a></p>
-<?php else: ?>
-    <?php if ($error): ?><p style="color: red;"><?= htmlspecialchars($error) ?></p><?php endif; ?>
-    <form method="post">
-        <h3>Database</h3>
-        <input name="host" placeholder="Host" value="127.0.0.1" required>
-        <input name="port" placeholder="Port" value="3306" required>
-        <input name="name" placeholder="Database name" required>
-        <input name="user" placeholder="Database user" required>
-        <input name="pass" placeholder="Database password" type="password">
-        <input name="prefix" placeholder="Table prefix" value="bx_" required>
-        <h3>Admin</h3>
-        <input name="admin_user" placeholder="Admin username" value="admin" required>
-        <input name="admin_email" placeholder="Admin email" value="admin@example.com" required>
-        <input name="admin_pass" placeholder="Admin password" type="password" required>
-        <div><button type="submit">Install</button></div>
-    </form>
-<?php endif; ?>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banner Exchange Installer</title>
+    <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <h1>Banner Exchange Installer</h1>
+        <p class="small">Yellow/black admin-ready setup wizard.</p>
+    </div>
+
+    <?php if ($error): ?><div class="alert err"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+    <?php if ($success): ?><div class="alert ok"><?= htmlspecialchars($success) ?></div><?php endif; ?>
+
+    <?php if ($alreadyInstalled): ?>
+        <div class="card">
+            <h2>Installation Status</h2>
+            <p>System is already installed. For security, remove or block public access to <code>install.php</code>.</p>
+            <p><a href="/login.php">Go to Login</a></p>
+        </div>
+    <?php else: ?>
+        <form class="card" method="post">
+            <h2>Database</h2>
+            <div class="inline">
+                <input name="host" placeholder="Host" value="127.0.0.1" required>
+                <input name="port" placeholder="Port" value="3306" required>
+            </div>
+            <input name="name" placeholder="Database name" required>
+            <div class="inline">
+                <input name="user" placeholder="Database user" required>
+                <input name="pass" placeholder="Database password" type="password">
+            </div>
+            <input name="prefix" placeholder="Table prefix" value="bx_" required>
+
+            <h2>Administrator account</h2>
+            <input name="admin_user" placeholder="Admin username" value="admin" required>
+            <input name="admin_email" placeholder="Admin email" value="admin@example.com" required>
+            <input name="admin_pass" placeholder="Admin password" type="password" required>
+            <button type="submit">Install now</button>
+        </form>
+    <?php endif; ?>
+</div>
 </body>
 </html>

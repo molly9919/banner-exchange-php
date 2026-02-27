@@ -15,16 +15,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-<!doctype html><html><body style="font-family: Arial; max-width: 600px; margin: 30px auto;">
-<h1>Registracija</h1>
-<?php if ($error): ?><p style="color: red"><?= htmlspecialchars($error) ?></p><?php endif; ?>
-<form method="post">
-    <input name="email" type="email" placeholder="Email" required>
-    <input name="username" placeholder="Username" required>
-    <input name="password" type="password" placeholder="Password" required>
-    <input name="country_code" placeholder="Country code (npr. BA)" value="ALL">
-    <input name="timezone" placeholder="Timezone (Europe/Sarajevo)" value="UTC">
-    <label><input type="checkbox" name="agree_rules" value="1" checked> Slažem se sa pravilima</label>
-    <button type="submit">Kreiraj račun</button>
-</form>
-</body></html>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div class="container" style="max-width:700px;">
+    <div class="card"><h1>Create account</h1></div>
+    <?php if ($error): ?><div class="alert err"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+    <form class="card" method="post">
+        <input name="email" type="email" placeholder="Email" required>
+        <input name="username" placeholder="Username" required>
+        <input name="password" type="password" placeholder="Password" required>
+        <div class="inline">
+            <input name="country_code" placeholder="Country code (BA, HR, RS, ... or ALL)" value="ALL">
+            <input name="timezone" placeholder="Timezone (e.g. Europe/Sarajevo)" value="UTC">
+        </div>
+        <label><input type="checkbox" name="agree_rules" value="1" checked style="width:auto"> I agree with the exchange rules</label>
+        <button type="submit">Create account</button>
+    </form>
+</div>
+</body>
+</html>

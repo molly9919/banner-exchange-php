@@ -25,6 +25,7 @@ A simple, extensible **banner exchange** application in plain PHP with a MySQL b
   - **Moderator ACL** with per-right permission assignment,
   - **Email campaigns** (draft/send, sent counters),
   - **Backup/Restore UI** with SQL export and SQL upload restore.
+- Unified yellow/black UI theme for installer, public pages, user dashboard and admin backend.
 - Public endpoints:
   - `serve.php?size=...&user=...` to serve banners,
   - `click.php?token=...` to track clicks and redirect,
@@ -35,7 +36,8 @@ A simple, extensible **banner exchange** application in plain PHP with a MySQL b
 1. Deploy the project to a server with PHP 8.1+ and MySQL 5.7+/8.
 2. Set your web root to the `public/` directory.
 3. Open `http://your-domain/install.php` and complete the setup form.
-4. After installation, remove or protect `install.php`.
+4. Installer validates required fields, runs DB creation in a transaction, writes config, and shows a final completion message.
+5. After installation, remove or protect `install.php`.
 
 ## Embed exchange code on user websites
 
