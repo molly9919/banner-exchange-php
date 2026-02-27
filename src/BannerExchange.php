@@ -63,7 +63,7 @@ final class BannerExchange
             $appUrl = $this->appUrl();
             if ($appUrl !== '') {
                 $verifyUrl = $appUrl . '/verify_email.php?token=' . urlencode($verifyToken);
-                @mail(strtolower(trim($data['email'] ?? '')), 'Verify your account', "Please verify your account by opening: {$verifyUrl}");
+                $this->sendMail(strtolower(trim($data['email'] ?? '')), 'Verify your account', "Please verify your account by opening: {$verifyUrl}");
             }
         }
 
@@ -311,7 +311,7 @@ final class BannerExchange
                 continue;
             }
 
-            @mail($email, (string) $campaign['subject_line'], (string) $campaign['body_text']);
+            $this->sendMail($email, (string) $campaign['subject_line'], (string) $campaign['body_text']);
             $sent++;
         }
 
@@ -375,7 +375,7 @@ final class BannerExchange
         $this->db->pdo()->prepare('UPDATE ' . $this->table('users') . ' SET reset_token = ?, reset_expires_at = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id = ?')->execute([$token, $userId]);
 
         $url = $this->appUrl() . '/reset_password.php?token=' . urlencode($token);
-        @mail($email, 'Password reset', "Open this link to reset your password: {$url}");
+        $this->sendMail($email, 'Password reset', "Open this link to reset your password: {$url}");
 
         return true;
     }
@@ -401,6 +401,31 @@ final class BannerExchange
         $this->db->pdo()->prepare('UPDATE ' . $this->table('users') . ' SET password_hash = ?, reset_token = NULL, reset_expires_at = NULL WHERE id = ?')->execute([$hash, $userId]);
 
         return ['ok' => true, 'error' => null];
+    }
+
+    private function sendMail(string $to, string $subject, string $body): bool
+    {
+        $to = trim($to);
+        if ($to === '') {
+            return false;
+        }
+
+        $fromDomain = parse_url($this->appUrl(), PHP_URL_HOST);
+        if (!is_string($fromDomain) || $fromDomain === '') {
+            $fromDomain = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        }
+
+        $fromDomain = preg_replace('/:\d+$/', '', (string) $fromDomain);
+        $from = 'no-reply@' . $fromDomain;
+        $headers = [
+            'MIME-Version: 1.0',
+            'Content-Type: text/plain; charset=UTF-8',
+            'From: Banner Exchange <' . $from . '>',
+            'Reply-To: ' . $from,
+            'X-Mailer: PHP/' . PHP_VERSION,
+        ];
+
+        return @mail($to, $subject, $body, implode("\r\n", $headers));
     }
 
     private function appUrl(): string

@@ -63,6 +63,7 @@ $prefix = $config['db']['prefix'];
 $user = $pdo->query('SELECT * FROM ' . $prefix . 'users WHERE id = ' . (int) $userId)->fetch();
 $banners = $pdo->query('SELECT * FROM ' . $prefix . 'banners WHERE user_id = ' . (int) $userId . ' ORDER BY id DESC')->fetchAll();
 $categories = $pdo->query('SELECT * FROM ' . $prefix . 'categories ORDER BY name ASC')->fetchAll();
+$settings = $exchange->settings();
 ?>
 <!doctype html>
 <html lang="en">
@@ -85,6 +86,14 @@ $categories = $pdo->query('SELECT * FROM ' . $prefix . 'categories ORDER BY name
 
     <?php if ($message): ?><div class="alert ok"><?= htmlspecialchars($message) ?></div><?php endif; ?>
     <?php if ($error): ?><div class="alert err"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+
+
+    <div class="card">
+        <h2>Code for your website (show other banners)</h2>
+        <p class="small">Copy one of these snippets to your website. Your user ID is <strong><?= (int) $userId ?></strong>.</p>
+        <textarea readonly><iframe src="<?= htmlspecialchars(($settings['app_url'] ?? '') ?: ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')) ) ?>/serve.php?size=468x60&amp;user=<?= (int) $userId ?>" width="468" height="60" frameborder="0" scrolling="no"></iframe></textarea>
+        <textarea readonly><iframe src="<?= htmlspecialchars(($settings['app_url'] ?? '') ?: ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')) ) ?>/serve.php?size=300x250&amp;user=<?= (int) $userId ?>" width="300" height="250" frameborder="0" scrolling="no"></iframe></textarea>
+    </div>
 
     <form class="card" method="post" enctype="multipart/form-data">
         <input type="hidden" name="action" value="add_banner">
