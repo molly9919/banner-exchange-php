@@ -36,14 +36,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$alreadyInstalled) {
             throw new RuntimeException('Could not read schema file.');
         }
 
-        $pdo->beginTransaction();
-
         $schema = str_replace('{prefix}', $prefix, $schema);
         foreach (array_filter(array_map('trim', explode(';', $schema))) as $query) {
             if ($query !== '') {
                 $pdo->exec($query);
             }
         }
+
+        // MySQL DDL may auto-commit, so wrap only data seeding in a transaction.
+        $pdo->beginTransaction();
 
         $passwordHash = password_hash($adminPass, PASSWORD_DEFAULT);
         $stmt = $pdo->prepare('INSERT INTO ' . $prefix . 'users (email, username, password_hash, timezone, country_code, is_admin, is_approved, agree_rules, created_at) VALUES (?, ?, ?, "UTC", "ALL", 1, 1, 1, NOW())');
@@ -84,7 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$alreadyInstalled) {
             throw new RuntimeException('Could not write config/config.php.');
         }
 
-        $pdo->commit();
+        if ($pdo->inTransaction()) {
+            $pdo->commit();
+        }
         $success = '✅ Installation is complete. You can now log in at /login.php with your admin account.';
         $alreadyInstalled = true;
     } catch (Throwable $e) {
